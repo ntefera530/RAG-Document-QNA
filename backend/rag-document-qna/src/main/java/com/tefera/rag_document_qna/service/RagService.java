@@ -2,8 +2,10 @@ package com.tefera.rag_document_qna.service;
 
 import com.tefera.rag_document_qna.dto.DocumentResponse;
 import com.tefera.rag_document_qna.dto.QuestionResponse;
+import com.tefera.rag_document_qna.model.ChatHistory;
 import com.tefera.rag_document_qna.model.Document;
 import com.tefera.rag_document_qna.repository.DocumentRepository;
+import com.tefera.rag_document_qna.repository.ChatHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -27,9 +29,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RagService {
 
-    private final ChatClient chatClient;
-    private final VectorStore vectorStore;
-    private final DocumentRepository documentRepository;
+	private final ChatClient chatClient;
+	private final VectorStore vectorStore;
+	private final DocumentRepository documentRepository;
+	private final ChatHistoryRepository chatHistoryRepository;
 
     public DocumentResponse ingestDocument(MultipartFile file) throws IOException {
         log.info("Ingesting document: {}", file.getOriginalFilename());
@@ -93,10 +96,22 @@ public class RagService {
         log.info("Document deleted successfully: {}", documentId);
     }
 
-    public QuestionResponse askQuestion(String question, String documentId) {
+    public QuestionResponse askQuestion(String question, String documentId, String sessionId) {
         log.info("Processing question: {}", question);
 
         try {
+            // Generate session ID if not provided
+            if (sessionId == null || sessionId.isEmpty()) {
+                sessionId = java.util.UUID.randomUUID().toString();
+            }
+
+            // Save user message to history
+            chatHistoryRepository.save(ChatHistory.builder()
+                    .sessionId(sessionId)
+                    .role("user")
+                    .content(question)
+                    .build());
+
             // Search for relevant chunks in vector store
             SearchRequest searchRequest = SearchRequest.builder()
                     .query(question)
@@ -111,18 +126,30 @@ public class RagService {
                     .map(org.springframework.ai.document.Document::getText)
                     .collect(Collectors.joining("\n\n"));
 
-            // Build prompt with context
+            // Get previous conversation history
+            List<ChatHistory> history = chatHistoryRepository
+                    .findBySessionIdOrderByCreatedAtAsc(sessionId);
+
+            // Build conversation history string
+            String conversationHistory = history.stream()
+                    .map(h -> h.getRole().toUpperCase() + ": " + h.getContent())
+                    .collect(Collectors.joining("\n"));
+
+            // Build prompt with context and history
             String prompt = """
                     You are a helpful assistant that answers questions based on the provided document context.
                     
-                    Context:
+                    Context from documents:
                     %s
                     
-                    Question: %s
+                    Conversation history:
+                    %s
                     
-                    Please provide a clear and accurate answer based only on the context provided.
+                    Current question: %s
+                    
+                    Please provide a clear and accurate answer based on the context provided.
                     If the answer cannot be found in the context, say so clearly.
-                    """.formatted(context, question);
+                    """.formatted(context, conversationHistory, question);
 
             // Call Ollama via Spring AI
             String answer = chatClient.prompt()
@@ -130,9 +157,18 @@ public class RagService {
                     .call()
                     .content();
 
+            // Save assistant response to history
+            String finalSessionId = sessionId;
+            chatHistoryRepository.save(ChatHistory.builder()
+                    .sessionId(finalSessionId)
+                    .role("assistant")
+                    .content(answer)
+                    .build());
+
             return QuestionResponse.builder()
                     .answer(answer)
                     .documentId(documentId)
+                    .sessionId(finalSessionId)
                     .success(true)
                     .build();
 

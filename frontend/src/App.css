@@ -309,3 +309,109 @@ body {
   .grid { grid-template-columns: 1fr; }
   .main { padding: 1rem; }
 }
+
+/* Chat */
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.chat-header .panel-title { margin-bottom: 0; }
+
+.new-chat-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.35rem 0.85rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.new-chat-btn:hover {
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  min-height: 300px;
+  max-height: 450px;
+  padding-right: 0.5rem;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.message { display: flex; flex-direction: column; gap: 0.35rem; animation: fadeUp 0.2s ease forwards; }
+
+.message-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.message-user { align-items: flex-end; }
+.message-user .message-label { color: var(--accent); }
+
+.message-bubble {
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  max-width: 85%;
+  white-space: pre-wrap;
+}
+
+.message-user .message-bubble {
+  background: rgba(123, 97, 255, 0.12);
+  border: 1px solid rgba(123, 97, 255, 0.25);
+  border-bottom-right-radius: 2px;
+}
+
+.message-assistant .message-bubble {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 2px;
+}
+
+.message-bubble.error {
+  background: rgba(255, 77, 109, 0.08);
+  border-color: rgba(255, 77, 109, 0.25);
+  color: var(--error);
+}
+
+/* Thinking animation */
+.thinking-dots {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.thinking-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: bounce 1.2s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}

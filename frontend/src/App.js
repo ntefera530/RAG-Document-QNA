@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { uploadDocument, getAllDocuments, askQuestion, deleteDocument } from "./services/api";
 import "./App.css";
 
@@ -6,12 +6,19 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [asking, setAsking] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, asking]);
 
   const fetchDocuments = async () => {
     setLoadingDocs(true);
@@ -40,17 +47,6 @@ export default function App() {
     }
   };
 
-  const handleDelete = async (e, docId) => {
-    e.stopPropagation();
-    try {
-        await deleteDocument(docId);
-        setDocuments(docs => docs.filter(d => d.id !== docId));
-        if (selectedDoc === docId) setSelectedDoc(null);
-    } catch (err) {
-        console.error("Delete failed", err);
-    }
-  };
-
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
@@ -60,16 +56,46 @@ export default function App() {
 
   const handleAsk = async () => {
     if (!question.trim()) return;
+    const userMessage = question;
+    setQuestion("");
+    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
     setAsking(true);
-    setAnswer(null);
+
     try {
-      const res = await askQuestion(question, selectedDoc);
-      setAnswer(res);
+      const res = await askQuestion(userMessage, selectedDoc, sessionId);
+      setSessionId(res.sessionId);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: res.success ? res.answer : res.errorMessage,
+        success: res.success
+      }]);
     } catch (err) {
       console.error("Question failed", err);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: "Something went wrong. Please try again.",
+        success: false
+      }]);
     } finally {
       setAsking(false);
     }
+  };
+
+  const handleDelete = async (e, docId) => {
+    e.stopPropagation();
+    try {
+      await deleteDocument(docId);
+      setDocuments(docs => docs.filter(d => d.id !== docId));
+      if (selectedDoc === docId) setSelectedDoc(null);
+    } catch (err) {
+      console.error("Delete failed", err);
+    }
+  };
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setSessionId(null);
+    setSelectedDoc(null);
   };
 
   return (
@@ -164,12 +190,19 @@ export default function App() {
             </div>
           </section>
 
-          {/* Q&A Panel */}
+          {/* Chat Panel */}
           <section className="panel qa-panel">
-            <h2 className="panel-title">
-              <span className="panel-number">02</span>
-              Ask a Question
-            </h2>
+            <div className="chat-header">
+              <h2 className="panel-title">
+                <span className="panel-number">02</span>
+                Ask a Question
+              </h2>
+              {messages.length > 0 && (
+                <button className="new-chat-btn" onClick={handleNewChat}>
+                  + New Chat
+                </button>
+              )}
+            </div>
 
             {selectedDoc && (
               <div className="selected-doc-banner">
@@ -177,16 +210,50 @@ export default function App() {
               </div>
             )}
 
+            {/* Chat Messages */}
+            <div className="chat-messages">
+              {messages.length === 0 ? (
+                <div className="placeholder-state">
+                  <div className="placeholder-icon">?</div>
+                  <p>Upload a document and ask anything about it</p>
+                  <p className="placeholder-hint">Tip: Select a document from the left to scope your question</p>
+                </div>
+              ) : (
+                messages.map((msg, idx) => (
+                  <div key={idx} className={`message message-${msg.role}`}>
+                    <div className="message-label">
+                      {msg.role === "user" ? "YOU" : "DOCMIND"}
+                    </div>
+                    <div className={`message-bubble ${msg.success === false ? "error" : ""}`}>
+                      {msg.content}
+                    </div>
+                  </div>
+                ))
+              )}
+              {asking && (
+                <div className="message message-assistant">
+                  <div className="message-label">DOCMIND</div>
+                  <div className="message-bubble thinking">
+                    <div className="thinking-dots">
+                      <span /><span /><span />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
             <div className="question-area">
               <textarea
                 className="question-input"
-                placeholder="What would you like to know about your documents?"
+                placeholder="Ask anything about your documents... (Ctrl+Enter to send)"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && e.ctrlKey) handleAsk();
                 }}
-                rows={4}
+                rows={3}
               />
               <button
                 className={`ask-btn ${asking ? "loading" : ""}`}
@@ -196,29 +263,10 @@ export default function App() {
                 {asking ? (
                   <><div className="btn-spinner" /> Thinking...</>
                 ) : (
-                  "Ask ⟶"
+                  "Send ⟶"
                 )}
               </button>
             </div>
-
-            {answer && (
-              <div className={`answer-card ${answer.success ? "success" : "error"}`}>
-                <div className="answer-header">
-                  {answer.success ? "◈ Answer" : "✗ Error"}
-                </div>
-                <div className="answer-body">
-                  {answer.success ? answer.answer : answer.errorMessage}
-                </div>
-              </div>
-            )}
-
-            {!answer && !asking && (
-              <div className="placeholder-state">
-                <div className="placeholder-icon">?</div>
-                <p>Upload a document and ask anything about it</p>
-                <p className="placeholder-hint">Tip: Select a document from the left to scope your question</p>
-              </div>
-            )}
           </section>
 
         </div>

@@ -48,7 +48,8 @@ public class RagController {
         log.info("Received question: {}", request.getQuestion());
         QuestionResponse response = ragService.askQuestion(
                 request.getQuestion(),
-                request.getDocumentId()
+                request.getDocumentId(),
+                request.getSessionId()
         );
         return ResponseEntity.ok(response);
     }

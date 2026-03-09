@@ -13,6 +13,7 @@ public class QuestionResponse {
 
     private String answer;
     private String documentId;
+    private String sessionId;
     private boolean success;
     private String errorMessage;
 }

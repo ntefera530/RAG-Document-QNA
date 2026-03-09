@@ -10,4 +10,6 @@ public class QuestionRequest {
     private String question;
 
     private String documentId;
+    
+    private String sessionId;
 }
