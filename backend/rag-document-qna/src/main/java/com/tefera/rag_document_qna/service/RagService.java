@@ -13,6 +13,9 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.Loader;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -31,18 +34,31 @@ public class RagService {
     public DocumentResponse ingestDocument(MultipartFile file) throws IOException {
         log.info("Ingesting document: {}", file.getOriginalFilename());
 
+        // Extract text based on file type
+        String content;
+        String fileType = file.getContentType();
+        
+        if (fileType != null && fileType.equals("application/pdf")) {
+            // Extract text from PDF using PDFBox
+        	try (PDDocument pdDocument = Loader.loadPDF(file.getBytes())) {
+        	    PDFTextStripper stripper = new PDFTextStripper();
+        	    content = stripper.getText(pdDocument);
+        	}
+        } else {
+            // Plain text extraction
+            content = new String(file.getBytes(), StandardCharsets.UTF_8);
+        }
+
         // Save document metadata to DB
         Document document = Document.builder()
                 .fileName(file.getOriginalFilename())
-                .fileType(file.getContentType())
-                .content(new String(file.getBytes(), StandardCharsets.UTF_8))
+                .fileType(fileType)
+                .content(content)
                 .status("PROCESSING")
                 .build();
         document = documentRepository.save(document);
 
         try {
-            // Convert file to Spring AI documents and store in vector store
-            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
             org.springframework.ai.document.Document aiDoc =
                     new org.springframework.ai.document.Document(content);
             aiDoc.getMetadata().put("documentId", document.getId());
@@ -50,7 +66,6 @@ public class RagService {
 
             vectorStore.add(List.of(aiDoc));
 
-            // Update status to COMPLETED
             document.setStatus("COMPLETED");
             documentRepository.save(document);
 
@@ -64,6 +79,18 @@ public class RagService {
         }
 
         return mapToResponse(document);
+    }
+    
+    public void deleteDocument(String documentId) {
+        log.info("Deleting document: {}", documentId);
+        
+        // Remove from vector store
+        vectorStore.delete(List.of(documentId));
+        
+        // Remove from database
+        documentRepository.deleteById(documentId);
+        
+        log.info("Document deleted successfully: {}", documentId);
     }
 
     public QuestionResponse askQuestion(String question, String documentId) {

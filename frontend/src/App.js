@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { uploadDocument, getAllDocuments, askQuestion } from "./services/api";
+import { uploadDocument, getAllDocuments, askQuestion, deleteDocument } from "./services/api";
 import "./App.css";
 
 export default function App() {
@@ -37,6 +37,17 @@ export default function App() {
       console.error("Upload failed", err);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDelete = async (e, docId) => {
+    e.stopPropagation();
+    try {
+        await deleteDocument(docId);
+        setDocuments(docs => docs.filter(d => d.id !== docId));
+        if (selectedDoc === docId) setSelectedDoc(null);
+    } catch (err) {
+        console.error("Delete failed", err);
     }
   };
 
@@ -139,6 +150,13 @@ export default function App() {
                           {doc.status}
                         </span>
                       </div>
+                      <button
+                        className="delete-btn"
+                        onClick={(e) => handleDelete(e, doc.id)}
+                        title="Delete document"
+                      >
+                        ✕
+                      </button>
                     </li>
                   ))}
                 </ul>

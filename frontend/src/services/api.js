@@ -18,6 +18,11 @@ export const uploadDocument = async (file) => {
   return response.data;
 };
 
+export const deleteDocument = async (documentId) => {
+    const response = await api.delete(`/documents/${documentId}`);
+    return response.data;
+};
+
 export const getAllDocuments = async () => {
   const response = await api.get('/documents');
   return response.data;

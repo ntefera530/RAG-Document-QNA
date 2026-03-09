@@ -29,6 +29,13 @@ public class RagController {
         DocumentResponse response = ragService.ingestDocument(file);
         return ResponseEntity.ok(response);
     }
+    
+    @DeleteMapping("/documents/{id}")
+    public ResponseEntity<Void> deleteDocument(@PathVariable String id) {
+        log.info("Received delete request for document: {}", id);
+        ragService.deleteDocument(id);
+        return ResponseEntity.noContent().build();
+    }
 
     @GetMapping("/documents")
     public ResponseEntity<List<DocumentResponse>> getAllDocuments() {
