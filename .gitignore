@@ -1,0 +1,25 @@
+# Secrets
+.env
+application-local.properties
+
+# Eclipse
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+.apt_generated
+
+# IntelliJ
+.idea
+*.iws
+*.iml
+*.ipr
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
